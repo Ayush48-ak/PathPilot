@@ -1,0 +1,34 @@
+// use prisma-next
+
+model User {
+  id        Int               @id @default(autoincrement())
+  email     String            @unique
+  name      String?
+  createdAt TimestamptzString @default(now())
+  updatedAt TimestamptzString @default(now())
+}
+
+model UserProfile {
+  id                 Int               @id @default(autoincrement())
+  userId             Int               @unique
+  education          String?
+  currentDegree      String?
+  graduationYear     Int?
+  previousBackground String?
+  experienceLevel    String?
+  careerGoal         String?
+  createdAt          TimestamptzString @default(now())
+  updatedAt          TimestamptzString @default(now())
+
+  user               User @relation(fields: [userId], references: [id])
+}
+
+model Career {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?
+  category    String?
+  createdAt   TimestamptzString @default(now())
+  updatedAt   TimestamptzString @default(now())
+}
+
