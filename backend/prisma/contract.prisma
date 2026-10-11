@@ -1,4 +1,5 @@
-// use prisma-next
+
+ // use prisma-next
 
 model User {
   id        Int               @id @default(autoincrement())
@@ -6,6 +7,19 @@ model User {
   name      String?
   createdAt TimestamptzString @default(now())
   updatedAt TimestamptzString @default(now())
+
+  skills UserSkill[]
+}
+
+model UserSkill {
+  id          Int               @id @default(autoincrement())
+  userId      Int
+  name        String
+  proficiency String
+  createdAt   TimestamptzString @default(now())
+  updatedAt   TimestamptzString @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model UserProfile {
@@ -20,7 +34,7 @@ model UserProfile {
   createdAt          TimestamptzString @default(now())
   updatedAt          TimestamptzString @default(now())
 
-  user               User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Career {
@@ -30,5 +44,65 @@ model Career {
   category    String?
   createdAt   TimestamptzString @default(now())
   updatedAt   TimestamptzString @default(now())
+
+  skills CareerSkill[]
+  phases RoadmapPhase[]
+}
+
+model CareerSkill {
+  id          Int               @id @default(autoincrement())
+  careerId    Int
+  name        String
+  description String?
+  importance  String?
+  level       String?
+  createdAt   TimestamptzString @default(now())
+  updatedAt   TimestamptzString @default(now())
+
+  career Career @relation(fields: [careerId], references: [id])
+}
+
+model RoadmapPhase {
+  id          Int               @id @default(autoincrement())
+  careerId    Int
+  title       String
+  description String?
+  order       Int
+  duration    String?
+  createdAt   TimestamptzString @default(now())
+  updatedAt   TimestamptzString @default(now())
+
+  career Career @relation(fields: [careerId], references: [id])
+  topics RoadmapTopic[]
+}
+
+model RoadmapTopic {
+  id             Int               @id @default(autoincrement())
+  phaseId        Int
+  title          String
+  description    String?
+  order          Int
+  estimatedHours Int?
+  resourceUrl    String?
+  createdAt      TimestamptzString @default(now())
+  updatedAt      TimestamptzString @default(now())
+
+  phase RoadmapPhase @relation(fields: [phaseId], references: [id])
+}
+
+
+model TopicProgress {
+  id          Int               @id @default(autoincrement())
+  userId      Int
+  topicId     Int
+  completed   Boolean           @default(false)
+  completedAt TimestamptzString?
+  createdAt   TimestamptzString @default(now())
+  updatedAt   TimestamptzString @default(now())
+
+  user  User        @relation(fields: [userId], references: [id])
+  topic RoadmapTopic @relation(fields: [topicId], references: [id])
+
+  @@unique([userId, topicId])
 }
 
