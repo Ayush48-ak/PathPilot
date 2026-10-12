@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 const API = "http://localhost:3001";
@@ -75,7 +75,6 @@ export default function DashboardPage() {
       setError("");
 
       try {
-        // Load the saved profile and available careers first.
         const [profiles, careers, savedProgress] = await Promise.all([
           fetchJson<UserProfile[]>(`${API}/profiles`),
           fetchJson<Career[]>(`${API}/career-paths`),
@@ -84,7 +83,9 @@ export default function DashboardPage() {
 
         if (!active) return;
 
-        const profile = profiles.find((item) => item.userId === USER_ID);
+        const profile = profiles.find(
+          (item) => item.userId === USER_ID
+        );
 
         if (!profile?.careerGoal) {
           setCareer(null);
@@ -97,7 +98,6 @@ export default function DashboardPage() {
           return;
         }
 
-        // Match the saved career goal to the actual career record.
         const selectedCareer = careers.find(
           (item) =>
             item.name.trim().toLowerCase() ===
@@ -118,7 +118,6 @@ export default function DashboardPage() {
         setCareer(selectedCareer);
         setProgress(savedProgress);
 
-        // Fetch data for the selected career ID, not a fixed career ID.
         const [gapResult, roadmapResult] = await Promise.allSettled([
           fetchJson<SkillGap>(
             `${API}/users/${USER_ID}/skill-gap/${selectedCareer.id}`
@@ -177,20 +176,42 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const completedTopicIds = new Set(
-    progress.filter((item) => item.completed).map((item) => item.topicId)
+  // Use only topics that belong to the selected career's roadmap.
+  const allTopics = useMemo(
+    () => phases.flatMap((phase) => phase.topics ?? []),
+    [phases]
   );
 
-  const allTopics = phases.flatMap((phase) => phase.topics ?? []);
+  const roadmapTopicIds = useMemo(
+    () => new Set(allTopics.map((topic) => topic.id)),
+    [allTopics]
+  );
+
+  // Ignore completed records for topics outside this roadmap.
+  const completedTopicIds = useMemo(
+    () =>
+      new Set(
+        progress
+          .filter(
+            (item) =>
+              item.completed && roadmapTopicIds.has(item.topicId)
+          )
+          .map((item) => item.topicId)
+      ),
+    [progress, roadmapTopicIds]
+  );
+
   const completedTopics = allTopics.filter((topic) =>
     completedTopicIds.has(topic.id)
   ).length;
 
   const totalTopics = allTopics.length;
+
+  // No topics means progress is not yet measurable, rather than 0%.
   const progressPercentage =
     totalTopics > 0
       ? Math.round((completedTopics / totalTopics) * 100)
-      : 0;
+      : null;
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -255,10 +276,14 @@ export default function DashboardPage() {
           <article className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <p className="text-sm text-slate-400">Roadmap completion</p>
             <p className="mt-3 text-3xl font-bold">
-              {totalTopics > 0 ? `${progressPercentage}%` : "—"}
+              {progressPercentage === null
+                ? "—"
+                : `${progressPercentage}%`}
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              {completedTopics} of {totalTopics} topics completed
+              {totalTopics > 0
+                ? `${completedTopics} of ${totalTopics} topics completed`
+                : "No topics available yet"}
             </p>
           </article>
 
@@ -330,7 +355,7 @@ export default function DashboardPage() {
                   const percentage =
                     topics.length > 0
                       ? Math.round((completed / topics.length) * 100)
-                      : 0;
+                      : null;
 
                   return (
                     <div
@@ -340,15 +365,31 @@ export default function DashboardPage() {
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="font-medium">{phase.title}</h3>
                         <span className="text-sm text-slate-400">
-                          {completed}/{topics.length}
+                          {topics.length > 0
+                            ? `${completed}/${topics.length}`
+                            : "No topics"}
                         </span>
                       </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+
+                      {percentage !== null ? (
                         <div
-                          className="h-full rounded-full bg-blue-500"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
+                          className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800"
+                          role="progressbar"
+                          aria-label={`${phase.title} completion`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={percentage}
+                        >
+                          <div
+                            className="h-full rounded-full bg-blue-500 transition-all"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-sm text-slate-500">
+                          No topics have been added to this phase yet.
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -357,7 +398,7 @@ export default function DashboardPage() {
               <p className="mt-6 text-sm text-slate-500">
                 {loading
                   ? "Loading roadmap phases..."
-                  : "No roadmap topics are available for this career yet."}
+                  : "No roadmap phases or topics are available for this career yet."}
               </p>
             )}
           </article>
